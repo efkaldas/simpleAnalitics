@@ -16,14 +16,30 @@ if (isset($_SESSION['access_token']) && $_SESSION['access_token']) {
   // Set the access token on the client.
   $client->setAccessToken($_SESSION['access_token']);
 
+  $sesString = "Количество посещений сегодня";
+  $sesString7 = "Количество посещений за 7д";
+  $sesString30 = "Количество посещений за 30д";
+
   // Create an authorized analytics service object.
   $analytics = new Google_Service_AnalyticsReporting($client);
+  $startdate = "today";
+  $enddate = "today";
+
+  $startdate7 = "7daysAgo";
+  $enddate7 = "today";
+
+  $startdate30 = "30daysAgo";
+  $enddate30 = "today";
 
   // Call the Analytics Reporting API V4.
-  $response = getReport($analytics);
+  $response = getReport($analytics, $startdate, $enddate, $sesString);
+  $response2 = getReport($analytics, $startdate7, $enddate7, $sesString7);
+  $response3 = getReport($analytics, $startdate30, $enddate30, $sesString30);
 
   // Print the response.
   printResults($response);
+  printResults($response2);
+  printResults($response3);
 
 } else {
   $redirect_uri = 'http://' . $_SERVER['HTTP_HOST'] . '/oauth2callback.php';
@@ -37,29 +53,31 @@ if (isset($_SESSION['access_token']) && $_SESSION['access_token']) {
  * @param service An authorized Analytics Reporting API V4 service object.
  * @return The Analytics Reporting API V4 response.
  */
-function getReport($analytics) {
+function getReport($analytics, $startdate, $enddate, $sesString) {
 
   // Replace with your view ID, for example XXXX.
   $VIEW_ID = "189503242";
 
-  // Create the DateRange object.
+  // Create the DateRange object.(for 1 day)
   $dateRange = new Google_Service_AnalyticsReporting_DateRange();
-  $dateRange->setStartDate("7daysAgo");
-  $dateRange->setEndDate("today");
+  $dateRange->setStartDate($startdate);
+  $dateRange->setEndDate($enddate);
 
   // Create the Metrics object.
   $sessions = new Google_Service_AnalyticsReporting_Metric();
   $sessions->setExpression("ga:sessions");
-  $sessions->setAlias("sessions");
+  $sessions->setAlias($sesString);
+
 
   // Create the ReportRequest object.
   $request = new Google_Service_AnalyticsReporting_ReportRequest();
   $request->setViewId($VIEW_ID);
-  $request->setDateRanges($dateRange);
+  $request->setDateRanges(array($dateRange));
   $request->setMetrics(array($sessions));
 
   $body = new Google_Service_AnalyticsReporting_GetReportsRequest();
   $body->setReportRequests( array( $request) );
+  
   return $analytics->reports->batchGet( $body );
 }
 
