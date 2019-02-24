@@ -16,13 +16,13 @@ if (isset($_SESSION['access_token']) && $_SESSION['access_token']) {
   // Set the access token on the client.
   $client->setAccessToken($_SESSION['access_token']);
 
-  $sesString = "Количество посещений сегодня";
+  $sesString = "Количество посещений за 1д";
   $sesString7 = "Количество посещений за 7д";
   $sesString30 = "Количество посещений за 30д";
 
   // Create an authorized analytics service object.
   $analytics = new Google_Service_AnalyticsReporting($client);
-  $startdate = "today";
+  $startdate = "1daysAgo";
   $enddate = "today";
 
   $startdate7 = "7daysAgo";
@@ -32,14 +32,14 @@ if (isset($_SESSION['access_token']) && $_SESSION['access_token']) {
   $enddate30 = "today";
 
   // Call the Analytics Reporting API V4.
-  $response = getReport($analytics, $startdate, $enddate, $sesString);
-  $response2 = getReport($analytics, $startdate7, $enddate7, $sesString7);
-  $response3 = getReport($analytics, $startdate30, $enddate30, $sesString30);
+  $response = getReport($analytics, $startdate, $enddate);
+  $response2 = getReport($analytics, $startdate7, $enddate7);
+  $response3 = getReport($analytics, $startdate30, $enddate30);
 
   // Print the response.
-  printResults($response);
-  printResults($response2);
-  printResults($response3);
+  printResults($response, $sesString);
+  printResults($response2, $sesString7);
+  printResults($response3, $sesString30);
 
 } else {
   $redirect_uri = 'http://' . $_SERVER['HTTP_HOST'] . '/oauth2callback.php';
@@ -53,7 +53,7 @@ if (isset($_SESSION['access_token']) && $_SESSION['access_token']) {
  * @param service An authorized Analytics Reporting API V4 service object.
  * @return The Analytics Reporting API V4 response.
  */
-function getReport($analytics, $startdate, $enddate, $sesString) {
+function getReport($analytics, $startdate, $enddate) {
 
   // Replace with your view ID, for example XXXX.
   $VIEW_ID = "189503242";
@@ -65,15 +65,23 @@ function getReport($analytics, $startdate, $enddate, $sesString) {
 
   // Create the Metrics object.
   $sessions = new Google_Service_AnalyticsReporting_Metric();
-  $sessions->setExpression("ga:sessions");
-  $sessions->setAlias($sesString);
+  $sessions->setExpression("ga:pageViews");
+  $sessions->setAlias(" ");
+
+  $users = new Google_Service_AnalyticsReporting_Metric();
+  $users->setExpression("ga:users");
+  $users->setAlias("  ");
+
+  $path = new Google_Service_AnalyticsReporting_Dimension();
+  $path->setName("ga:pagePath");
 
 
   // Create the ReportRequest object.
   $request = new Google_Service_AnalyticsReporting_ReportRequest();
   $request->setViewId($VIEW_ID);
   $request->setDateRanges(array($dateRange));
-  $request->setMetrics(array($sessions));
+  $request->setDimensions(array($path));
+  $request->setMetrics(array( $sessions, $users));
 
   $body = new Google_Service_AnalyticsReporting_GetReportsRequest();
   $body->setReportRequests( array( $request) );
@@ -82,12 +90,13 @@ function getReport($analytics, $startdate, $enddate, $sesString) {
 }
 
 
+
 /**
  * Parses and prints the Analytics Reporting API V4 response.
  *
  * @param An Analytics Reporting API V4 response.
  */
-function printResults($reports) {
+function printResults($reports, $title) {
   for ( $reportIndex = 0; $reportIndex < count( $reports ); $reportIndex++ ) {
     $report = $reports[ $reportIndex ];
     $header = $report->getColumnHeader();
@@ -95,22 +104,39 @@ function printResults($reports) {
     $metricHeaders = $header->getMetricHeader()->getMetricHeaderEntries();
     $rows = $report->getData()->getRows();
 
+    echo "<table border='4' class='stats' cellspacing='0'>
+
+    <tr>
+    <td class='hed' colspan='8'>".$title."</td>
+      </tr>
+    <tr>
+    <th>Страница</th>
+    <th>Количество просмотров</th>
+    <th>Количество пользователей</th>
+
+    </tr>";
+
+
     for ( $rowIndex = 0; $rowIndex < count($rows); $rowIndex++) {
       $row = $rows[ $rowIndex ];
       $dimensions = $row->getDimensions();
       $metrics = $row->getMetrics();
-      for ($i = 0; $dimensionHeaders != null && $i < count($dimensionHeaders) && $i < count($dimensions); $i++) {
-        print($dimensionHeaders[$i] . ": " . $dimensions[$i] . "\n");
+      for ($i = 0;  $i < count($dimensionHeaders) && $i < count($dimensions); $i++) {
+        echo "<tr>";
+        echo "<td>" . $dimensionHeaders[$i] . ": " . $dimensions[$i] . "</td>";
       }
 
       for ($j = 0; $j < count($metrics); $j++) {
         $values = $metrics[$j]->getValues();
         for ($k = 0; $k < count($values); $k++) {
           $entry = $metricHeaders[$k];
-          print($entry->getName() . ": " . $values[$k] . "\n");
+          echo "<td>" . $entry->getName() . ": " . $values[$k];
         }
+        echo "</tr>";
+        echo "</td>";
       }
     }
+    echo "</table>";
   }
 }
 
